@@ -1,7 +1,7 @@
 if myHero.charName ~= "Caitlyn" or not FileExist(LIB_PATH .. "FHPrediction.lua") then return end
 
 require 'FHPrediction'
-local version = 0.1
+local version = 0.2
 local shouldcombo = false
 local lastwuse = 0
 local rrange = {2000, 2500, 3000}
@@ -9,7 +9,7 @@ local MyESpell = {
 	range = 750,
 	speed = 2000,
 	radius = 90,
-	delay = 0.25,
+	delay = 0.4,
 	collision = {
 	[CollisionObjectTypes.Champion] = false, 
 	[CollisionObjectTypes.Minion] = true, 
@@ -29,7 +29,36 @@ local MyWSpell = {
 	},
 	type = SkillShotType.SkillshotCircle,
 }
-
+local WCC = {
+	['Spells'] = {
+		['aatroxpassivedeath'] = true,
+		['rebirth'] = true,
+		['bardrstasis'] = true,
+		['lissandrarself'] = true,
+		['pantheonesound'] = true,
+		['PantheonRJump'] = true,
+		['summonerteleport'] = true,
+		['zhonyasringshield'] = true,
+		['galioidolofdurand'] = true,
+		['missfortunebulletsound'] = true,
+		['alzaharnethergraspsound'] = true,
+		['infiniteduresssound'] = true,
+		['VelkozR'] = true,
+		['ReapTheWhirlwind'] = true,
+		['katarinarsound'] = true,
+		['fearmonger_marker'] = true,
+		['AbsoluteZero'] = true,
+		['Meditate'] = true,
+		['ShenStandUnited'] = true,
+	},
+	['CC'] = { 
+		[5] = 'Stun', 
+		[11] = 'Snare', 
+		[24] = 'Suppresion', 
+		[29] = 'KnockUp', 
+	},		
+}
+	
 function LoadOrbwalk()
 	if _G.AutoCarry and _G.Reborn_Initialised then
 		MenuCait.Orbwalker:addParam("Info", "SAC Detected", SCRIPT_PARAM_INFO, "")
@@ -67,6 +96,9 @@ function OnLoad()
 	MenuCait:addSubMenu("[Cait]: Clear Settings", "clear")
 	MenuCait.clear:addParam("ClearUseQ", "Use (Q)", SCRIPT_PARAM_ONOFF, true)
 	MenuCait.clear:addParam("ClearQMana", "Min. Mana % To Use (Q)", SCRIPT_PARAM_SLICE, 60, 0, 100, 0)
+	MenuCait:addSubMenu("[Cait]: Extra Settings", "extra")
+	MenuCait.extra:addParam("AutoWCC", "Auto W On CC", SCRIPT_PARAM_ONOFF, true)
+	MenuCait.extra:addParam("AutoWC", "Auto W On Channel Spells", SCRIPT_PARAM_ONOFF, true)
 	MenuCait:addSubMenu("[Cait]: Draw Settings", "draw")
 	MenuCait.draw:addParam("DrawQ", "Draw (Q) Range", SCRIPT_PARAM_ONOFF, true)
 	MenuCait.draw:addParam("DrawW", "Draw (W) Range", SCRIPT_PARAM_ONOFF, true)
@@ -174,6 +206,13 @@ end
 function OnApplyBuff(unit, source, buff)
 	if unit and source and buff and unit.isMe and source.type == myHero.type and source.team ~= myHero.team and (buff.name == 'caitlynyordletrapinternal' or buff.name == 'caitlynyordletrapsight') then
 		ResetAA()
+	end
+	if source and source.type == myHero.type and source.team ~= myHero.team then
+		if (WCC.CC[buff.type] and MenuCait.extra.AutoWCC) or (WCC.Spells[buff.name] and MenuCait.extra.AutoWC) then
+			if lastwuse + 3 < os.clock() and GetDistance(source) <= MyWSpell.range then
+				CastSpell(_W, source.x, source.z)
+			end
+		end
 	end
 end
 
