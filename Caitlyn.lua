@@ -1,7 +1,9 @@
+-- Fixed Errors When Play With SAC:R
+
 if myHero.charName ~= "Caitlyn" or not FileExist(LIB_PATH .. "FHPrediction.lua") then return end
 
 require 'FHPrediction'
-local version = 0.2
+local version = 0.4
 local shouldcombo = false
 local lastwuse = 0
 local rrange = {2000, 2500, 3000}
@@ -99,6 +101,8 @@ function OnLoad()
 	MenuCait:addSubMenu("[Cait]: Extra Settings", "extra")
 	MenuCait.extra:addParam("AutoWCC", "Auto W On CC", SCRIPT_PARAM_ONOFF, true)
 	MenuCait.extra:addParam("AutoWC", "Auto W On Channel Spells", SCRIPT_PARAM_ONOFF, true)
+	MenuCait.extra:addParam("CastR", "Cast (R) Key Down", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("T"))
+	MenuCait.extra:addParam("CastE", "Cast (E) To Mouse Pos", SCRIPT_PARAM_ONKEYDOWN, false, string.byte("N"))
 	MenuCait:addSubMenu("[Cait]: Draw Settings", "draw")
 	MenuCait.draw:addParam("DrawQ", "Draw (Q) Range", SCRIPT_PARAM_ONOFF, true)
 	MenuCait.draw:addParam("DrawW", "Draw (W) Range", SCRIPT_PARAM_ONOFF, true)
@@ -111,7 +115,19 @@ function OnTick()
 	if TargetSelectorR.range ~= rrange[myHero:GetSpellData(_R).level] then
 		TargetSelectorR.range = rrange[myHero:GetSpellData(_R).level]
 	end
-	if myHero:CanUseSpell(_R) == READY and MenuCait.combo.ComboUseR then
+	if MenuCait.extra.CastR and myHero:CanUseSpell(_R) == READY then
+		TargetSelectorR:update()
+		if ValidTarget(TargetSelectorR.target) then
+			CastSpell(_R, TargetSelectorR.target)
+		end
+	end
+	if MenuCait.extra.CastE and myHero:CanUseSpell(_E) == READY then
+		local pos = Vector(myHero) - (Vector(mousePos) - Vector(myHero)):normalized() * MyESpell.range
+		if pos then
+			CastSpell(_E, pos.x, pos.z)
+		end
+	end
+	if ComboActive() and myHero:CanUseSpell(_R) == READY and MenuCait.combo.ComboUseR then
 		TargetSelectorR:update()
 		if ValidTarget(TargetSelectorR.target) and CountEnemyHeroInRange(myHero.range+350) == 0 then
 			CastSpell(_R, TargetSelectorR.target)
@@ -126,21 +142,19 @@ function OnTick()
 	if ComboActive() and ValidTarget(TargetSelector.target) then
 		if shouldcombo and MenuCait.combo.ComboUseQ and MenuCait.combo.ComboUseW and MenuCait.combo.ComboUseE then
 			local pos, hc, info = FHPrediction.GetPrediction(MyESpell, TargetSelector.target)
-			local pos2, hc2, info2 = FHPrediction.GetPrediction(MyWSpell, TargetSelector.target)
-			if pos and hc >= 1 and info.collision and info.collision.amount == 0 and pos2 and GetDistance(TargetSelector.target) <= MyESpell.range - 200 then
-				if lastwuse + 3 < os.clock() then
-					CastSpell(_W, pos2.x, pos2.z)
-				end		
+			local pos3, hc3, info3 = FHPrediction.GetPrediction("Q", TargetSelector.target)
+			if pos and hc >= 1 and info.collision and info.collision.amount == 0 and pos3 and GetDistance(TargetSelector.target) <= MyESpell.range - 300 then	
 				CastSpell(_E, pos.x, pos.z)	
-				DelayAction(function()
-					if ValidTarget(TargetSelector.target) then
-						CastSpell(_Q, TargetSelector.target.x, TargetSelector.target.z)
-					end
-				end, 0.1)
+				if lastwuse + 3 < os.clock() then
+					CastSpell(_W, pos.x, pos.z)
+				end	
+				DelayAction(function()	
+					CastSpell(_Q, pos3.x, pos3.z)
+				end, 0.15)
 			elseif info.collision and info.collision.amount ~= 0 then
 				if GetDistance(TargetSelector.target) > myHero.range + 65 and GetDistance(TargetSelector.target) <= 1300 then
 					local pos, hc, info = FHPrediction.GetPrediction("Q", TargetSelector.target)
-					if pos and hc >= 1.1 then
+					if pos and hc >= 1 then
 						CastSpell(_Q, pos.x, pos.z)
 					end
 				end
@@ -251,7 +265,9 @@ end
 function ComboActive()
 	if _G.SxOrb and SxOrb:GetMode() == 1 then
 		return true
-	elseif _G.AutoCarry and _G.AutoCarry.Keys.AutoCarry then
+	elseif _G.NebelwolfisOrbWalkerLoaded and _G.NebelwolfisOrbWalker.Config.k.Combo then
+		return true
+	elseif _G.Reborn_Loaded and _G.AutoCarry.Keys and _G.AutoCarry.Keys.AutoCarry then
 		return true
 	elseif _G.MMA_IsLoaded and _G.MMA_IsOrbwalking() then
 		return true
@@ -263,7 +279,9 @@ end
 function HarassActive()
 	if _G.SxOrb and SxOrb:GetMode() == 2 then
 		return true
-	elseif _G.AutoCarry and _G.AutoCarry.Keys.MixedMode then
+	elseif  _G.NebelwolfisOrbWalkerLoaded and _G.NebelwolfisOrbWalker.Config.k.Harass then
+		return true
+	elseif _G.Reborn_Loaded and _G.AutoCarry.Keys and _G.AutoCarry.Keys.MixedMode then
 		return true
 	elseif _G.MMA_IsLoaded and _G.MMA_IsDualCarrying() then
 		return true
@@ -275,7 +293,9 @@ end
 function FarmActive()
 	if _G.SxOrb and SxOrb:GetMode() == 3 then
 		return true
-	elseif _G.AutoCarry and _G.AutoCarry.Keys.LaneClear then
+	elseif _G.NebelwolfisOrbWalkerLoaded and _G.NebelwolfisOrbWalker.Config.k.LaneClear then
+		return true
+	elseif _G.Reborn_Loaded and _G.AutoCarry.Keys and _G.AutoCarry.Keys.LaneClear then
 		return true
 	elseif _G.MMA_IsLoaded and _G.MMA_IsLaneClearing() then
 		return true
